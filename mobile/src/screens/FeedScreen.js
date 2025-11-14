@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Alert } from 'react-native';
 import { colors } from '../theme/colors';
-import { getPosts } from '../services/api';
+import { getPosts, checkHealth } from '../services/api';
 
 export default function FeedScreen() {
   const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [dbStatus, setDbStatus] = useState('Verificando...');
 
   const loadPosts = async () => {
     setRefreshing(true);
     try {
+      const health = await checkHealth();
+      setDbStatus(health.database);
+      
       const postsData = await getPosts();
       setPosts(postsData);
     } catch (error) {
+      Alert.alert('Erro', 'Não foi possível carregar os posts');
       console.error('Erro ao carregar posts:', error);
     }
     setRefreshing(false);
@@ -26,7 +31,7 @@ export default function FeedScreen() {
     <View style={styles.postCard}>
       <View style={styles.postHeader}>
         <View style={styles.avatar} />
-        <View>
+        <View style={styles.userInfo}>
           <Text style={styles.userName}>{item.user.name}</Text>
           <Text style={styles.userLocation}>{item.user.location}</Text>
         </View>
@@ -34,7 +39,10 @@ export default function FeedScreen() {
       </View>
       
       <Text style={styles.postContent}>{item.content}</Text>
-      <Text style={styles.postCategory}>{item.category}</Text>
+      
+      <View style={styles.categoryBadge}>
+        <Text style={styles.categoryText}>{item.category}</Text>
+      </View>
       
       <View style={styles.postActions}>
         <TouchableOpacity style={styles.actionButton}>
@@ -53,9 +61,12 @@ export default function FeedScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>SLUM</Text>
-        <TouchableOpacity>
-          <Text style={styles.headerIcon}>💬</Text>
+        <View>
+          <Text style={styles.headerTitle}>SLUM</Text>
+          <Text style={styles.dbStatus}>Banco: {dbStatus}</Text>
+        </View>
+        <TouchableOpacity onPress={loadPosts}>
+          <Text style={styles.refreshButton}>🔄</Text>
         </TouchableOpacity>
       </View>
 
@@ -72,7 +83,10 @@ export default function FeedScreen() {
         }
         style={styles.feed}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Nenhum post ainda. Seja o primeiro!</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Nenhum post ainda</Text>
+            <Text style={styles.emptySubtext}>Seja o primeiro a postar na sua quebrada! 🚀</Text>
+          </View>
         }
       />
     </View>
@@ -94,12 +108,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   headerTitle: {
-    fontFamily: 'Graffiti',
     fontSize: 24,
     color: colors.primary,
+    fontWeight: 'bold',
   },
-  headerIcon: {
+  dbStatus: {
+    fontSize: 12,
+    color: colors.text,
+    opacity: 0.7,
+    marginTop: 4,
+  },
+  refreshButton: {
     fontSize: 24,
+    color: colors.text,
   },
   feed: {
     flex: 1,
@@ -123,39 +144,49 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginRight: 10,
   },
+  userInfo: {
+    flex: 1,
+  },
   userName: {
     color: colors.text,
-    fontFamily: 'Roboto-Bold',
     fontSize: 16,
+    fontWeight: 'bold',
   },
   userLocation: {
     color: colors.text,
-    fontFamily: 'Roboto-Regular',
     fontSize: 12,
     opacity: 0.7,
   },
   timestamp: {
     color: colors.text,
-    fontFamily: 'Roboto-Regular',
     fontSize: 12,
     opacity: 0.7,
-    marginLeft: 'auto',
   },
   postContent: {
     color: colors.text,
-    fontFamily: 'Roboto-Regular',
     fontSize: 16,
-    marginBottom: 5,
-  },
-  postCategory: {
-    color: colors.secondary,
-    fontFamily: 'Roboto-Bold',
-    fontSize: 12,
     marginBottom: 10,
+    lineHeight: 20,
+  },
+  categoryBadge: {
+    backgroundColor: colors.primary,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  categoryText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   postActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#444',
+    paddingTop: 10,
   },
   actionButton: {
     paddingVertical: 5,
@@ -163,7 +194,6 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: colors.text,
-    fontFamily: 'Roboto-Regular',
   },
   whatsappButton: {
     backgroundColor: '#25D366',
@@ -173,12 +203,22 @@ const styles = StyleSheet.create({
   },
   whatsappText: {
     color: '#000',
-    fontFamily: 'Roboto-Bold',
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 50,
+    padding: 20,
   },
   emptyText: {
     color: colors.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  emptySubtext: {
+    color: colors.text,
+    opacity: 0.7,
     textAlign: 'center',
-    marginTop: 50,
-    fontFamily: 'Roboto-Regular',
   },
 });
