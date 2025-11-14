@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuração do PostgreSQL - SUA STRING AQUI
+// Configuração do PostgreSQL - SUA STRING CONEXÃO
 const pool = new Pool({
   connectionString: 'postgresql://slumapp_db_user:AVFXnhlRh5y78pKaqEUeRema0GBMnO3Q@dpg-d4bnh063jp1c73bs9jj0-a.oregon-postgres.render.com/slumapp_db',
   ssl: {
@@ -41,8 +41,22 @@ const createTable = async () => {
 createTable();
 
 // Rotas
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'Slum API rodando! 🚀', database: 'PostgreSQL Conectado' });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Testar conexão com o banco
+    await pool.query('SELECT 1');
+    res.json({ 
+      status: 'Slum API rodando! 🚀', 
+      database: 'PostgreSQL Conectado',
+      url: 'https://slum-backend.onrender.com'
+    });
+  } catch (error) {
+    res.json({ 
+      status: 'Slum API rodando! 🚀', 
+      database: 'Erro na conexão PostgreSQL',
+      error: error.message 
+    });
+  }
 });
 
 // Buscar todos os posts
@@ -71,9 +85,13 @@ app.post('/api/posts', async (req, res) => {
   try {
     const { content, category, user } = req.body;
     
+    if (!content || !category) {
+      return res.status(400).json({ error: 'Conteúdo e categoria são obrigatórios' });
+    }
+    
     const result = await pool.query(
       'INSERT INTO posts (user_name, user_location, content, category) VALUES ($1, $2, $3, $4) RETURNING *',
-      [user?.name || 'Usuário Slum', user?.location || 'Local', content, category]
+      [user?.name || 'Usuário Slum', user?.location || 'Sua Comunidade', content, category]
     );
 
     const newPost = result.rows[0];
@@ -91,6 +109,33 @@ app.post('/api/posts', async (req, res) => {
     res.json(formattedPost);
   } catch (error) {
     console.error('Erro ao criar post:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Buscar posts por categoria
+app.get('/api/posts/category/:category', async (req, res) => {
+  try {
+    const { category } = req.params;
+    const result = await pool.query(
+      'SELECT * FROM posts WHERE category = $1 ORDER BY created_at DESC',
+      [category]
+    );
+    
+    const posts = result.rows.map(post => ({
+      id: post.id.toString(),
+      user: { 
+        name: post.user_name, 
+        location: post.user_location 
+      },
+      content: post.content,
+      category: post.category,
+      timestamp: formatTimestamp(post.created_at)
+    }));
+    
+    res.json(posts);
+  } catch (error) {
+    console.error('Erro ao buscar posts por categoria:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -116,10 +161,14 @@ const addSamplePosts = async () => {
     const count = parseInt(result.rows[0].count);
     
     if (count === 0) {
+      console.log('📝 Adicionando posts de exemplo...');
+      
       const samplePosts = [
-        ['Zé da Elétrica', 'Beco 5', 'Galera, tô fazendo bico de elétrica R$50', 'Serviços'],
-        ['Lanches da Tia', 'Rua Principal', 'X-Tudo hoje por R$15! Delivery grátis na comunidade', 'Comércio'],
-        ['Seu João', 'Vila Nova', 'Encontrei um cachorro na rua principal. É de alguém?', 'Avisos']
+        ['Zé da Elétrica', 'Beco 5', 'Galera, tô fazendo bico de elétrica R$50. Chama no WhatsApp!', 'Serviços'],
+        ['Lanches da Tia', 'Rua Principal', 'X-Tudo hoje por R$15! Delivery grátis na comunidade 🍔', 'Comércio'],
+        ['Seu João', 'Vila Nova', 'Encontrei um cachorro caramelo na rua principal. É de alguém? 🐕', 'Avisos'],
+        ['MC Túlio', 'Quebrada do Samba', 'Rolê na laje sábado! Leva o refri que a gente leva o som 🎵', 'Eventos'],
+        ['Dona Maria', 'Beco 3', 'Vendo roupas infantis em ótimo estado. Preço bom! 👕', 'Comércio']
       ];
       
       for (const post of samplePosts) {
@@ -128,17 +177,25 @@ const addSamplePosts = async () => {
           post
         );
       }
-      console.log('✅ Posts de exemplo adicionados');
+      console.log('✅ Posts de exemplo adicionados com sucesso!');
+    } else {
+      console.log(`✅ Banco já possui ${count} posts`);
     }
   } catch (error) {
-    console.error('Erro ao adicionar posts de exemplo:', error);
+    console.error('❌ Erro ao adicionar posts de exemplo:', error);
   }
 };
 
-addSamplePosts();
-
 // Iniciar servidor
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Slum Backend rodando na porta ${PORT}`);
-  console.log(`📊 PostgreSQL conectado: slumapp_db`);
+  console.log('🚀 ========================================');
+  console.log('🚀 SLUM BACKEND INICIADO COM SUCESSO!');
+  console.log('🚀 ========================================');
+  console.log(`📡 URL: https://slum-backend.onrender.com`);
+  console.log(`🔧 Porta: ${PORT}`);
+  console.log(`📊 Banco: PostgreSQL conectado`);
+  console.log('🚀 ========================================');
+  
+  // Adicionar posts de exemplo após iniciar o servidor
+  setTimeout(addSamplePosts, 2000);
 });

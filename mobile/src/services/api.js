@@ -1,11 +1,11 @@
 import axios from 'axios';
 
-// SUBSTITUA pela URL do seu backend no Render depois do deploy
-const API_URL = 'https://slum-backend.onrender.com';
+// SUA URL DO BACKEND NO RENDER
+const API_URL = 'https://slum-backend.onrender.com/api';
 
 export const api = axios.create({
   baseURL: API_URL,
-  timeout: 15000, // Aumentei o timeout para o PostgreSQL
+  timeout: 15000,
 });
 
 export const getPosts = async () => {
@@ -29,6 +29,16 @@ export const createPost = async (postData) => {
   } catch (error) {
     console.error('❌ Erro ao criar post:', error.message);
     throw error;
+  }
+};
+
+export const getPostsByCategory = async (category) => {
+  try {
+    const response = await api.get(`/posts/category/${category}`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Erro ao buscar posts por categoria:', error.message);
+    return [];
   }
 };
 
